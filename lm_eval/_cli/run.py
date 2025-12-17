@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import textwrap
+import traceback
 from functools import partial
 
 from lm_eval._cli.subcommand import SubCommand
@@ -440,6 +441,8 @@ class Run(SubCommand):
                         print("Logged eval samples to W&B.")
                 except Exception as e:
                     eval_logger.info(f"Logging to W&B failed: {e}")
+                    traceback.print_exc()
+                    eval_logger.info(traceback.format_exc())
 
             # Save results
             evaluation_tracker.save_results_aggregated(
