@@ -429,10 +429,15 @@ class Run(SubCommand):
             # W&B logging
             if cfg.wandb_args:
                 try:
+                    print("Logging results to Weights & Biases...")
                     wandb_logger.post_init(results)
+                    print("Finished W&B initialization.")
                     wandb_logger.log_eval_result()
+                    print("Logged eval results to W&B.")
                     if cfg.log_samples:
+                        print("Need to log samples...")
                         wandb_logger.log_eval_samples(samples)
+                        print("Logged eval samples to W&B.")
                 except Exception as e:
                     eval_logger.info(f"Logging to W&B failed: {e}")
 
