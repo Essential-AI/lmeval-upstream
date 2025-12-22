@@ -5,14 +5,13 @@ from typing import TYPE_CHECKING, Union
 
 from transformers import AutoTokenizer
 
-
 if TYPE_CHECKING:
     import transformers
 
 
 eval_logger = logging.getLogger(__name__)
 
-DEFAULT_SEQ_LENGTHS = [4096, 8192, 16384]
+DEFAULT_SEQ_LENGTHS = [4096, 8192, 16384, 32768]
 
 
 @cache
