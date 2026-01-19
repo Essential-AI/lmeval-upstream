@@ -20,7 +20,7 @@ aggregate_metric_list:
     weight_by_size: False
   - metric: "16384"
     weight_by_size: False
-  - metric: "32768"
+  - metric: "32000"
     weight_by_size: False
 metadata:
   version: 1
