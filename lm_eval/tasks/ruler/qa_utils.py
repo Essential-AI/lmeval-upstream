@@ -22,6 +22,7 @@ import requests
 from tqdm import tqdm
 
 from lm_eval.tasks.ruler.common_utils import DEFAULT_SEQ_LENGTHS, get_tokenizer
+from lm_eval.tasks.ruler.instruct_utils import maybe_apply_prompt_template
 
 CONFIG = {
     "tokens_to_generate": 32,
@@ -225,10 +226,11 @@ def get_qa_dataset(ds, **kwargs) -> dict[str, datasets.Dataset]:
         for seq in kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     )
 
+    samples = maybe_apply_prompt_template(
+        list(itertools.chain.from_iterable(df)), **kwargs
+    )
     return {
-        "test": datasets.Dataset.from_list(
-            list(itertools.chain.from_iterable(df)), split=datasets.Split.TEST
-        )
+        "test": datasets.Dataset.from_list(samples, split=datasets.Split.TEST)
     }
 
 
