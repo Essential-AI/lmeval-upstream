@@ -10,7 +10,7 @@ in metadata::
 
 Each registered callable has signature::
 
-    (task_template: str, answer_prefix: str) -> (formatted_input: str, new_gen_prefix: str)
+    (task_template: str, answer_prefix: str) -> str
 
 To add support for a new model, define a function with that signature and
 decorate it with ``@register_prompt_template("OrgName/model-name")``.
@@ -18,7 +18,7 @@ decorate it with ``@register_prompt_template("OrgName/model-name")``.
 
 from collections.abc import Callable
 
-PromptTemplateFn = Callable[[str, str], tuple[str, str]]
+PromptTemplateFn = Callable[[str, str], str]
 PROMPT_TEMPLATES: dict[str, PromptTemplateFn] = {}
 
 
@@ -69,9 +69,8 @@ def maybe_apply_prompt_template(samples: list[dict], **kwargs) -> list[dict]:
     pretrained = kwargs.get("tokenizer", kwargs.get("pretrained", ""))
     fn = get_prompt_template(pretrained)
     for sample in samples:
-        sample["input"], sample["gen_prefix"] = fn(
-            sample["input"], sample.get("gen_prefix", "")
-        )
+        sample["input"] = fn(sample["input"], sample.get("gen_prefix", ""))
+        sample["gen_prefix"] = ""
     return samples
 
 
@@ -80,7 +79,7 @@ def maybe_apply_prompt_template(samples: list[dict], **kwargs) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 @register_prompt_template("EssentialAI/rnj-1-instruct")
-def _rnj_1_instruct(task_template: str, answer_prefix: str) -> tuple[str, str]:
+def _rnj_1_instruct(task_template: str, answer_prefix: str) -> str:
     _TEMPLATE = (
         "<|begin_of_text|>"
         "<|start_header_id|>system<|end_header_id|>\n"
@@ -98,4 +97,4 @@ def _rnj_1_instruct(task_template: str, answer_prefix: str) -> tuple[str, str]:
     last_eot = formatted.rfind("<|eot_id|>")
     if last_eot != -1:
         formatted = formatted[:last_eot]
-    return formatted, ""
+    return formatted

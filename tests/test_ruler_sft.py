@@ -20,8 +20,8 @@ from lm_eval.tasks.ruler.instruct_utils import (
 class TestRegisterPromptTemplate:
     def test_decorator_registers(self):
         @register_prompt_template("org/_test_dummy")
-        def _dummy(task_template: str, answer_prefix: str) -> tuple[str, str]:
-            return f"[{task_template}]", ""
+        def _dummy(task_template: str, answer_prefix: str) -> str:
+            return f"[{task_template}]"
 
         assert "org/_test_dummy" in PROMPT_TEMPLATES
         assert PROMPT_TEMPLATES["org/_test_dummy"] is _dummy
@@ -29,8 +29,8 @@ class TestRegisterPromptTemplate:
 
     def test_decorator_returns_original_function(self):
         @register_prompt_template("org/_test_identity")
-        def _identity(task_template: str, answer_prefix: str) -> tuple[str, str]:
-            return task_template, answer_prefix
+        def _identity(task_template: str, answer_prefix: str) -> str:
+            return task_template
 
         assert callable(_identity)
         del PROMPT_TEMPLATES["org/_test_identity"]
@@ -66,23 +66,21 @@ class TestResolvePromptTemplate:
 class TestRnj1InstructTemplate:
     def test_wraps_input_and_prefix(self):
         fn = get_prompt_template("EssentialAI/rnj-1-instruct")
-        new_input, new_prefix = fn("What is 2+2?", "Answer:")
+        new_input = fn("What is 2+2?", "Answer:")
         assert "<|begin_of_text|>" in new_input
         assert "What is 2+2?" in new_input
         assert "Answer:" in new_input
-        assert new_prefix == ""
 
     def test_strips_trailing_eot(self):
         fn = get_prompt_template("EssentialAI/rnj-1-instruct")
-        new_input, _ = fn("hello", "world")
+        new_input = fn("hello", "world")
         assert not new_input.endswith("<|eot_id|>")
         assert "world" in new_input
 
     def test_empty_answer_prefix(self):
         fn = get_prompt_template("EssentialAI/rnj-1-instruct")
-        new_input, new_prefix = fn("prompt text", "")
+        new_input = fn("prompt text", "")
         assert "prompt text" in new_input
-        assert new_prefix == ""
 
 
 class TestMaybeApplyPromptTemplate:
