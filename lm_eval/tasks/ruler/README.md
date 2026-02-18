@@ -17,6 +17,9 @@ Homepage: `https://github.com/NVIDIA/RULER`
 >   `--metadata='{"max_seq_lengths":[4096,8192,16384,32768,65536,131072]}'`. The metadata parameter can also be passed to the TaskManager (metadata: dict).
 > 3. To prevent truncation of longer sequences, we recommend setting the max_length parameter in model_args:
 >   `--model_args=pretrained=...,max_length=32768`
+> 4. **Instruct / chat models**: To wrap task prompts in the model's chat template (the "model template" from RULER Table 6), set `instruct` to `true` in metadata:
+>   `--metadata='{"instruct": true}'`.
+>   The prompt template is resolved automatically from the `pretrained` model name. See `instruct_utils.py` for supported models and how to add new ones.
 
 ### Citation
 
