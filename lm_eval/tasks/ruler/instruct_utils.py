@@ -78,7 +78,7 @@ def maybe_apply_prompt_template(samples: list[dict], **kwargs) -> list[dict]:
 # Built-in prompt templates
 # ---------------------------------------------------------------------------
 
-@register_prompt_template("EssentialAI/rnj-1-instruct")
+@register_prompt_template("EssentialAI/rnj-1-instruct-tokenizer-internal")
 def _rnj_1_instruct(task_template: str, answer_prefix: str) -> str:
     _TEMPLATE = (
         "<|begin_of_text|>"
