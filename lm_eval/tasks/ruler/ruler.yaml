@@ -9,6 +9,7 @@ task:
   - niah_multiquery
   - niah_multivalue
   - ruler_vt
+  - ruler_vt_final
   - ruler_cwe
   - ruler_fwe
   - ruler_qa_squad

@@ -34,13 +34,20 @@ CONFIG = {
         "tokens_to_generate": 30,
         "template": """Memorize and track the chain(s) of variable assignment hidden in the following text.\n\n{context}\nQuestion: Find all variables that are assigned the value {query} in the text above.""",
         "answer_prefix": """ Answer: According to the chain(s) of variable assignment in the text above, {num_v} variables are assigned the value {query}, they are: """,
+        "gen_prefix_search": " Answer: According to the chain(s) of variable assignment",
+    },
+    "variable_tracking_final": {
+        "tokens_to_generate": 30,
+        "template": """Memorize and track the chain(s) of variable assignment hidden in the following text.\n\n{context}\nQuestion: What is the final variable in the chain that holds the value {query}?""",
+        "answer_prefix": """ Answer: The final variable in the chain is: """,
+        "gen_prefix_search": " Answer: The final variable in the chain",
     },
 }
 
-TEMPLATE = (
-    CONFIG["variable_tracking"]["template"]
-    + CONFIG["variable_tracking"]["answer_prefix"]
-)
+
+def _get_template(config_key: str) -> str:
+    cfg = CONFIG[config_key]
+    return cfg["template"] + cfg["answer_prefix"]
 
 
 def generate_chains(
@@ -68,7 +75,13 @@ def generate_chains(
     return vars_ret, chains_ret
 
 
-def generate_input_output(num_noises, num_chains, num_hops, is_icl=False):
+def generate_input_output(
+    num_noises: int,
+    num_chains: int,
+    num_hops: int,
+    is_icl: bool = False,
+    config_key: str = "variable_tracking",
+):
     vars, chains = generate_chains(num_chains, num_hops, is_icl=is_icl)
 
     noise = "The grass is green. The sky is blue. The sun is yellow. Here we go. There and back again.\n"
@@ -98,28 +111,30 @@ def generate_input_output(num_noises, num_chains, num_hops, is_icl=False):
     context = " ".join(sentences)
     context = context.replace(". \n", ".\n")
 
-    template = TEMPLATE
-    if (
-        is_icl
-        and template
-        != CONFIG["variable_tracking"]["template"]
-        + CONFIG["variable_tracking"]["answer_prefix"]
-    ):
+    cfg = CONFIG[config_key]
+    template = _get_template(config_key)
+    if is_icl and template != cfg["template"] + cfg["answer_prefix"]:
         # remove model template
-        cutoff = template.index(CONFIG["variable_tracking"]["template"][:20])
-        cutoff_ans = template.index(CONFIG["variable_tracking"]["answer_prefix"][:10])
+        cutoff = template.index(cfg["template"][:20])
+        cutoff_ans = template.index(cfg["answer_prefix"][:10])
         template = (
             " ".join(template[cutoff:cutoff_ans].split()[:-1]) + template[cutoff_ans:]
         )
 
     value = chains[0][0].split("=")[-1].strip()
-    input_text = template.format(context=context, query=value, num_v=num_hops + 1)
+    if config_key == "variable_tracking_final":
+        answer = [vars[0][-1]]
+        input_text = template.format(context=context, query=value)
+    else:
+        answer = vars[0]
+        input_text = template.format(context=context, query=value, num_v=num_hops + 1)
 
-    return input_text, vars[0]
+    return input_text, answer
 
 
-def randomize_icl(icl_example: str) -> str:
-    icl_tgt_cut = icl_example.index(CONFIG["variable_tracking"]["answer_prefix"][-10:])
+def randomize_icl(icl_example: str, config_key: str = "variable_tracking") -> str:
+    cfg = CONFIG[config_key]
+    icl_tgt_cut = icl_example.index(cfg["answer_prefix"][-10:])
     icl_tgt = icl_example[icl_tgt_cut + 10 :].strip().split()
     for item in icl_tgt:
         new_item = "".join(random.choices(string.ascii_uppercase, k=len(item))).upper()
@@ -138,6 +153,7 @@ def sys_vartrack_w_noise_random(
     tokens_to_generate=30,
     icl_example: dict = None,
     remove_newline_tab=False,
+    config_key: str = "variable_tracking",
 ):
     write_jsons = []
     tokens_to_generate = tokens_to_generate
@@ -154,10 +170,15 @@ def sys_vartrack_w_noise_random(
 
     while total_tokens + tokens_to_generate + example_tokens < max_seq_length:
         input_text, answer = generate_input_output(
-            num_noises, num_chains, num_hops, is_icl=add_fewshot & (icl_example is None)
+            num_noises,
+            num_chains,
+            num_hops,
+            is_icl=add_fewshot & (icl_example is None),
+            config_key=config_key,
         )
         # Calculate the number of tokens in the example
-        total_tokens = len(tokenizer(input_text + f" {answer}").input_ids)
+        answer_str = " ".join(answer) if isinstance(answer, list) else answer
+        total_tokens = len(tokenizer(input_text + f" {answer_str}").input_ids)
         print(
             f"Max length {max_seq_length} | Current length {total_tokens + tokens_to_generate + example_tokens} | Noises: {num_noises}"
         )
@@ -177,6 +198,7 @@ def sys_vartrack_w_noise_random(
                     num_chains,
                     num_hops,
                     is_icl=add_fewshot & (icl_example is None),
+                    config_key=config_key,
                 )
                 length = (
                     len(tokenizer(input_text).input_ids)
@@ -191,10 +213,11 @@ def sys_vartrack_w_noise_random(
 
         if add_fewshot and (icl_example is not None):
             # insert icl_example between model template and input
-            cutoff = input_text.index(CONFIG["variable_tracking"]["template"][:20])
+            cfg = CONFIG[config_key]
+            cutoff = input_text.index(cfg["template"][:20])
             input_text = (
                 input_text[:cutoff]
-                + randomize_icl(icl_example)
+                + randomize_icl(icl_example, config_key=config_key)
                 + "\n\n"
                 + input_text[cutoff:]
             )
@@ -203,9 +226,7 @@ def sys_vartrack_w_noise_random(
                 input_text.replace("\n", " ").replace("\t", " ").strip().split()
             )
 
-        gen_prefix_index = input_text.rfind(
-            " Answer: According to the chain(s) of variable assignment"
-        )
+        gen_prefix_index = input_text.rfind(CONFIG[config_key]["gen_prefix_search"])
         gen_prefix = input_text[gen_prefix_index:].strip()
         # This condition is to check if we are generating the few-shot.
         if icl_example is not None:
@@ -226,6 +247,8 @@ def sys_vartrack_w_noise_random(
 def get_dataset(
     tokenizer: Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"],
     seq=None,
+    config_key: str = "variable_tracking",
+    num_samples: int = 500,
     **kwargs,
 ) -> list[dict]:
     icl_example = sys_vartrack_w_noise_random(
@@ -233,20 +256,48 @@ def get_dataset(
         num_samples=1,
         max_seq_length=500,
         incremental=5,
+        config_key=config_key,
     )[0]
     write_jsons = sys_vartrack_w_noise_random(
         tokenizer=tokenizer,
-        num_samples=500,
+        num_samples=num_samples,
         max_seq_length=seq,
         icl_example=icl_example,
+        config_key=config_key,
     )
     return write_jsons
 
 
 def get_vt_dataset(**kwargs) -> dict[str, datasets.Dataset]:
     pretrained = kwargs.get("tokenizer", kwargs.get("pretrained", ""))
+    num_samples = kwargs.pop("num_samples", 500)
     df = (
-        get_dataset(tokenizer=get_tokenizer(pretrained), seq=seq)
+        get_dataset(
+            tokenizer=get_tokenizer(pretrained),
+            seq=seq,
+            config_key="variable_tracking",
+            num_samples=num_samples,
+        )
+        for seq in kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
+    )
+
+    return {
+        "test": datasets.Dataset.from_list(
+            list(itertools.chain.from_iterable(df)), split=datasets.Split.TEST
+        )
+    }
+
+
+def get_vt_final_dataset(**kwargs) -> dict[str, datasets.Dataset]:
+    pretrained = kwargs.get("tokenizer", kwargs.get("pretrained", ""))
+    num_samples = kwargs.pop("num_samples", 500)
+    df = (
+        get_dataset(
+            tokenizer=get_tokenizer(pretrained),
+            seq=seq,
+            config_key="variable_tracking_final",
+            num_samples=num_samples,
+        )
         for seq in kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     )
 

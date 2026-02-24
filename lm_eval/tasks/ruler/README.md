@@ -52,7 +52,8 @@ Homepage: `https://github.com/NVIDIA/RULER`
 * `niah_multikey_3`: `NIAH multi-key, `
 * `niah_multiquery`: `NIA multi-query`
 * `niah_multivalue`: `NIAH multi-value`
-* `ruler_vt`: `Variation tracing`
+* `ruler_vt`: `Variation tracing` (predict all variables in chain)
+* `ruler_vt_final`: `Variation tracing - final` (predict only the final variable)
 * `ruler_cwe`: `Common word extraction`
 * `ruler_fwe`: `Frequent word extraction`
 * `ruler_qa_hotpot`: `QA Hotpot`
