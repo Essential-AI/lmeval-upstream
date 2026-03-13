@@ -1,6 +1,7 @@
 import abc
 import asyncio
 import copy
+import hashlib
 import itertools
 import json
 import logging
@@ -411,57 +412,77 @@ class TemplateAPI(TemplateLM):
         if self.tokenizer_backend is None:
             return [string]
         elif self.tokenizer_backend == "huggingface":
+            cache = self._get_token_encoding_cache()
             # by default for CausalLM - false or self.add_bos_token is set
             if not add_special_tokens:
                 add_special_tokens = False or self.add_bos_token
             if isinstance(string, str):
-                encoding: Union[List[List[int]], List[int]] = self.tokenizer(
-                    string,
-                    add_special_tokens=add_special_tokens,
-                    truncation=truncation,
-                    return_attention_mask=False,
-                ).input_ids
-            else:
-                batch_size = max(1, self.tokenizer_batch_size)
-                if len(string) <= batch_size:
+                cache_key = self._make_token_encoding_cache_key(
+                    [string], add_special_tokens, truncation
+                )
+                cached = cache.get(cache_key) if cache is not None else None
+                if cached is not None:
+                    encoding = cached
+                else:
                     encoding = self.tokenizer(
                         string,
                         add_special_tokens=add_special_tokens,
                         truncation=truncation,
                         return_attention_mask=False,
                     ).input_ids
+                    if cache is not None:
+                        cache.set(cache_key, encoding)
+            else:
+                cache_key = self._make_token_encoding_cache_key(
+                    string, add_special_tokens, truncation
+                )
+                cached = cache.get(cache_key) if cache is not None else None
+                if cached is not None:
+                    encoding = cached
                 else:
-                    progress = tqdm(
-                        desc="Tokenizing requests",
-                        total=len(string),
-                        disable=disable_tqdm,
-                    )
-                    encoding = []
-                    batched_strings = list(chunks(string, n=batch_size))
-
-                    def _encode_batch(batch: List[str]) -> List[List[int]]:
-                        return self.tokenizer(
-                            batch,
+                    batch_size = max(1, self.tokenizer_batch_size)
+                    if len(string) <= batch_size:
+                        encoding = self.tokenizer(
+                            string,
                             add_special_tokens=add_special_tokens,
                             truncation=truncation,
                             return_attention_mask=False,
                         ).input_ids
-
-                    if self.tokenizer_num_workers > 1:
-                        with ThreadPoolExecutor(
-                            max_workers=self.tokenizer_num_workers
-                        ) as executor:
-                            for batch, batch_encoding in zip(
-                                batched_strings,
-                                executor.map(_encode_batch, batched_strings),
-                            ):
-                                encoding.extend(batch_encoding)
-                                progress.update(len(batch))
                     else:
-                        for batch in batched_strings:
-                            encoding.extend(_encode_batch(batch))
-                            progress.update(len(batch))
-                    progress.close()
+                        progress = tqdm(
+                            desc="Tokenizing requests",
+                            total=len(string),
+                            disable=disable_tqdm,
+                        )
+                        encoding = []
+                        batched_strings = list(chunks(string, n=batch_size))
+
+                        def _encode_batch(batch: List[str]) -> List[List[int]]:
+                            return self.tokenizer(
+                                batch,
+                                add_special_tokens=add_special_tokens,
+                                truncation=truncation,
+                                return_attention_mask=False,
+                            ).input_ids
+
+                        if self.tokenizer_num_workers > 1:
+                            with ThreadPoolExecutor(
+                                max_workers=self.tokenizer_num_workers
+                            ) as executor:
+                                for batch, batch_encoding in zip(
+                                    batched_strings,
+                                    executor.map(_encode_batch, batched_strings),
+                                ):
+                                    encoding.extend(batch_encoding)
+                                    progress.update(len(batch))
+                        else:
+                            for batch in batched_strings:
+                                encoding.extend(_encode_batch(batch))
+                                progress.update(len(batch))
+                        progress.close()
+
+                    if cache is not None:
+                        cache.set(cache_key, encoding)
 
             # left-truncate the encoded context to be at most `left_truncate_len` tokens long
             if left_truncate_len:
@@ -490,6 +511,34 @@ class TemplateAPI(TemplateLM):
             except Exception:
                 encoding = self.tokenizer.encode_batch(string)
             return encoding
+
+    def _get_token_encoding_cache(self):
+        from lm_eval.caching.diskcache import get_cache
+
+        return get_cache("tokenizer_encodings")
+
+    def _make_token_encoding_cache_key(
+        self, texts: List[str], add_special_tokens: bool, truncation: bool
+    ) -> str:
+        tokenizer_name = (
+            getattr(self.tokenizer, "name_or_path", None)
+            or self.tokenizer_name
+            or self.model
+            or ""
+        )
+        payload = json.dumps(
+            {
+                "backend": self.tokenizer_backend,
+                "tokenizer": tokenizer_name,
+                "add_special_tokens": add_special_tokens,
+                "truncation": truncation,
+                "texts_sha256": hashlib.sha256(
+                    json.dumps(texts, ensure_ascii=False).encode("utf-8")
+                ).hexdigest(),
+            },
+            sort_keys=True,
+        )
+        return f"tok:{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]}"
 
     def decode_batch(self, tokens: List[List[int]]) -> List[str]:
         if self.tokenizer_backend == "huggingface":
