@@ -134,7 +134,7 @@ class TemplateAPI(TemplateLM):
         revision: Optional[str] = "main",
         use_fast_tokenizer: bool = True,
         tokenizer_batch_size: int = 512,
-        tokenizer_num_workers: int = 8,  # TODO: remove if it doesn't speed us up
+        tokenizer_num_workers: int = 8,
         verify_certificate: bool = True,
         ca_cert_path: Optional[str] = None,
         auth_token: Optional[str] = None,
