@@ -598,6 +598,7 @@ class TemplateAPI(TemplateLM):
     ) -> Union[List[str], List[Tuple[float, bool]], None]:
         # !!! Copy: shared dict for each request, need new object !!!
         gen_kwargs = copy.deepcopy(gen_kwargs)
+        outputs = None
         payload = self._create_payload(
             self.create_message(messages),
             generate=generate,
@@ -639,8 +640,12 @@ class TemplateAPI(TemplateLM):
             return answers
         # If the retries also fail
         except BaseException as e:
-            eval_logger.error(f"Exception:{repr(e)}, {outputs}, retrying.")
-            raise e
+            eval_logger.error(
+                "Exception: %r, outputs: %s, retrying.",
+                e,
+                outputs if outputs is not None else "<unavailable>",
+            )
+            raise
         finally:
             if acquired:
                 sem.release()
