@@ -11,19 +11,7 @@ doc_to_target: "{{outputs}}"
 gen_prefix: "{{gen_prefix}}"
 target_delimiter: " "
 process_results: !function common_utils.process_results
-metric_list:
-  - metric: "4096"
-    aggregation: !function common_utils.aggregate_metrics
-    higher_is_better: true
-  - metric: "8192"
-    aggregation: !function common_utils.aggregate_metrics
-    higher_is_better: true
-  - metric: "16384"
-    aggregation: !function common_utils.aggregate_metrics
-    higher_is_better: true
-  - metric: "32000"
-    aggregation: !function common_utils.aggregate_metrics
-    higher_is_better: true
+metric_list: !function common_utils.build_metric_list
 generation_kwargs:
   do_sample: false
   temperature: 0.0
