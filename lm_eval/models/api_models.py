@@ -1,9 +1,11 @@
 import abc
 import asyncio
 import copy
+import hashlib
 import itertools
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
 from typing import (
     TYPE_CHECKING,
@@ -131,6 +133,8 @@ class TemplateAPI(TemplateLM):
         trust_remote_code: bool = False,
         revision: Optional[str] = "main",
         use_fast_tokenizer: bool = True,
+        tokenizer_batch_size: int = 512,
+        tokenizer_num_workers: int = 8,
         verify_certificate: bool = True,
         ca_cert_path: Optional[str] = None,
         auth_token: Optional[str] = None,
@@ -189,6 +193,8 @@ class TemplateAPI(TemplateLM):
         self._eos_string = eos_string
         self.timeout = int(timeout)
         self.max_images = int(max_images)
+        self.tokenizer_batch_size = int(tokenizer_batch_size)
+        self.tokenizer_num_workers = max(1, int(tokenizer_num_workers))
 
         eval_logger.info(f"Using tokenizer {self.tokenizer_backend}")
         if self.tokenizer_backend is None:
@@ -400,20 +406,83 @@ class TemplateAPI(TemplateLM):
         left_truncate_len: int = None,
         add_special_tokens: bool = False,
         truncation: bool = False,
+        disable_tqdm: bool = False,
         **kwargs,
     ) -> Union[List[List[int]], List[int], List[str]]:
         if self.tokenizer_backend is None:
             return [string]
         elif self.tokenizer_backend == "huggingface":
+            cache = self._get_token_encoding_cache()
             # by default for CausalLM - false or self.add_bos_token is set
             if not add_special_tokens:
                 add_special_tokens = False or self.add_bos_token
-            encoding: Union[List[List[int]], List[int]] = self.tokenizer(
-                string,
-                add_special_tokens=add_special_tokens,
-                truncation=truncation,
-                return_attention_mask=False,
-            ).input_ids
+            if isinstance(string, str):
+                cache_key = self._make_token_encoding_cache_key(
+                    [string], add_special_tokens, truncation
+                )
+                cached = cache.get(cache_key) if cache is not None else None
+                if cached is not None:
+                    encoding = cached
+                else:
+                    encoding = self.tokenizer(
+                        string,
+                        add_special_tokens=add_special_tokens,
+                        truncation=truncation,
+                        return_attention_mask=False,
+                    ).input_ids
+                    if cache is not None:
+                        cache.set(cache_key, encoding)
+            else:
+                cache_key = self._make_token_encoding_cache_key(
+                    string, add_special_tokens, truncation
+                )
+                cached = cache.get(cache_key) if cache is not None else None
+                if cached is not None:
+                    encoding = cached
+                else:
+                    batch_size = max(1, self.tokenizer_batch_size)
+                    if len(string) <= batch_size:
+                        encoding = self.tokenizer(
+                            string,
+                            add_special_tokens=add_special_tokens,
+                            truncation=truncation,
+                            return_attention_mask=False,
+                        ).input_ids
+                    else:
+                        progress = tqdm(
+                            desc="Tokenizing requests",
+                            total=len(string),
+                            disable=disable_tqdm,
+                        )
+                        encoding = []
+                        batched_strings = list(chunks(string, n=batch_size))
+
+                        def _encode_batch(batch: List[str]) -> List[List[int]]:
+                            return self.tokenizer(
+                                batch,
+                                add_special_tokens=add_special_tokens,
+                                truncation=truncation,
+                                return_attention_mask=False,
+                            ).input_ids
+
+                        if self.tokenizer_num_workers > 1:
+                            with ThreadPoolExecutor(
+                                max_workers=self.tokenizer_num_workers
+                            ) as executor:
+                                for batch, batch_encoding in zip(
+                                    batched_strings,
+                                    executor.map(_encode_batch, batched_strings),
+                                ):
+                                    encoding.extend(batch_encoding)
+                                    progress.update(len(batch))
+                        else:
+                            for batch in batched_strings:
+                                encoding.extend(_encode_batch(batch))
+                                progress.update(len(batch))
+                        progress.close()
+
+                    if cache is not None:
+                        cache.set(cache_key, encoding)
 
             # left-truncate the encoded context to be at most `left_truncate_len` tokens long
             if left_truncate_len:
@@ -442,6 +511,34 @@ class TemplateAPI(TemplateLM):
             except Exception:
                 encoding = self.tokenizer.encode_batch(string)
             return encoding
+
+    def _get_token_encoding_cache(self):
+        from lm_eval.caching.diskcache import get_cache
+
+        return get_cache("tokenizer_encodings")
+
+    def _make_token_encoding_cache_key(
+        self, texts: List[str], add_special_tokens: bool, truncation: bool
+    ) -> str:
+        tokenizer_name = (
+            getattr(self.tokenizer, "name_or_path", None)
+            or self.tokenizer_name
+            or self.model
+            or ""
+        )
+        payload = json.dumps(
+            {
+                "backend": self.tokenizer_backend,
+                "tokenizer": tokenizer_name,
+                "add_special_tokens": add_special_tokens,
+                "truncation": truncation,
+                "texts_sha256": hashlib.sha256(
+                    json.dumps(texts, ensure_ascii=False).encode("utf-8")
+                ).hexdigest(),
+            },
+            sort_keys=True,
+        )
+        return f"tok:{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]}"
 
     def decode_batch(self, tokens: List[List[int]]) -> List[str]:
         if self.tokenizer_backend == "huggingface":
@@ -501,6 +598,7 @@ class TemplateAPI(TemplateLM):
     ) -> Union[List[str], List[Tuple[float, bool]], None]:
         # !!! Copy: shared dict for each request, need new object !!!
         gen_kwargs = copy.deepcopy(gen_kwargs)
+        outputs = None
         payload = self._create_payload(
             self.create_message(messages),
             generate=generate,
@@ -542,8 +640,12 @@ class TemplateAPI(TemplateLM):
             return answers
         # If the retries also fail
         except BaseException as e:
-            eval_logger.error(f"Exception:{repr(e)}, {outputs}, retrying.")
-            raise e
+            eval_logger.error(
+                "Exception: %r, outputs: %s, retrying.",
+                e,
+                outputs if outputs is not None else "<unavailable>",
+            )
+            raise
         finally:
             if acquired:
                 sem.release()
@@ -713,7 +815,9 @@ class TemplateAPI(TemplateLM):
             requests, all_gen_kwargs = zip(*(req.args for req in requests))
         if self.tokenized_requests:
             encodings_list = self.tok_encode(
-                requests, add_special_tokens=self.add_bos_token
+                requests,
+                add_special_tokens=self.add_bos_token,
+                disable_tqdm=disable_tqdm,
             )
         else:
             encodings_list = [None] * len(requests)
