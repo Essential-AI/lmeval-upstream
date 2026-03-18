@@ -19,6 +19,8 @@ import wonderwords
 from tqdm import tqdm
 
 from lm_eval.tasks.ruler.common_utils import DEFAULT_SEQ_LENGTHS, get_tokenizer
+from lm_eval.tasks.ruler.instruct_utils import maybe_apply_prompt_template
+from lm_eval.tasks.ruler.task_cache import ruler_cached
 
 
 CONFIG = {
@@ -174,6 +176,7 @@ def get_dataset(pretrained, seq=None, **kwargs):
     return write_jsons
 
 
+@ruler_cached
 def get_cw_dataset(**kwargs):
     pretrained = kwargs.get("tokenizer", kwargs.get("pretrained", {}))
     df = (
@@ -181,8 +184,9 @@ def get_cw_dataset(**kwargs):
         for seq in kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     )
 
+    samples = maybe_apply_prompt_template(
+        list(itertools.chain.from_iterable(df)), **kwargs
+    )
     return {
-        "test": datasets.Dataset.from_list(
-            list(itertools.chain.from_iterable(df)), split=datasets.Split.TEST
-        )
+        "test": datasets.Dataset.from_list(samples, split=datasets.Split.TEST)
     }

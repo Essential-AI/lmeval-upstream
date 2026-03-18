@@ -28,7 +28,7 @@ class GroupConfig(dict):
     group_alias: Optional[str] = None
     task: Optional[Union[str, list]] = None
     aggregate_metric_list: Optional[
-        Union[List[AggMetricConfig], AggMetricConfig, dict]
+        Union[List[AggMetricConfig], AggMetricConfig, dict, Callable]
     ] = None
     metadata: Optional[dict] = (
         None  # by default, not used in the code. allows for users to pass arbitrary info to tasks
@@ -41,6 +41,9 @@ class GroupConfig(dict):
         return setattr(self, item, value)
 
     def __post_init__(self):
+        if callable(self.aggregate_metric_list):
+            self.aggregate_metric_list = self.aggregate_metric_list(self.metadata)
+
         if self.aggregate_metric_list is not None:
             if isinstance(self.aggregate_metric_list, dict):
                 self.aggregate_metric_list = [self.aggregate_metric_list]

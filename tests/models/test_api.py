@@ -1,4 +1,5 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -322,3 +323,137 @@ def test_localchatcompletion_remote_tokenizer_unauthenticated(monkeypatch):
     assert captured["verify_certificate"] is False
     assert captured["ca_cert_path"] is None
     assert captured["auth_token"] is None
+
+
+def test_tok_encode_large_batch_uses_chunking_and_progress(monkeypatch):
+    tokenizer_calls = []
+    progress_updates = []
+
+    class DummyEncoding:
+        def __init__(self, input_ids):
+            self.input_ids = input_ids
+
+    class DummyTokenizer:
+        pad_token = "<pad>"
+        eos_token = "</s>"
+        eos_token_id = 0
+        bos_token_id = 1
+
+        def __call__(
+            self,
+            text,
+            add_special_tokens=False,
+            truncation=False,
+            return_attention_mask=False,
+        ):
+            tokenizer_calls.append(text)
+            if isinstance(text, str):
+                return DummyEncoding([len(text)])
+            return DummyEncoding([[len(item)] for item in text])
+
+    class DummyProgress:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def update(self, amount):
+            progress_updates.append(amount)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "transformers.AutoTokenizer.from_pretrained",
+        lambda *args, **kwargs: DummyTokenizer(),
+    )
+    monkeypatch.setattr("lm_eval.models.api_models.tqdm", DummyProgress)
+
+    api = LocalCompletionsAPI(
+        base_url="http://test-url.com",
+        model="EleutherAI/pythia-1b",
+        tokenizer_backend="huggingface",
+        tokenizer_batch_size=2,
+    )
+
+    result = api.tok_encode(
+        ["a", "bb", "ccc", "dddd", "eeeee"],
+        disable_tqdm=False,
+    )
+
+    assert result == [[1], [2], [3], [4], [5]]
+    assert tokenizer_calls == [["a", "bb"], ["ccc", "dddd"], ["eeeee"]]
+    assert progress_updates == [2, 2, 1]
+
+
+def test_tok_encode_large_batch_parallel_workers_preserve_order(monkeypatch):
+    tokenizer_calls = []
+    progress_updates = []
+    used_workers = []
+
+    class DummyEncoding:
+        def __init__(self, input_ids):
+            self.input_ids = input_ids
+
+    class DummyTokenizer:
+        pad_token = "<pad>"
+        eos_token = "</s>"
+        eos_token_id = 0
+        bos_token_id = 1
+
+        def __call__(
+            self,
+            text,
+            add_special_tokens=False,
+            truncation=False,
+            return_attention_mask=False,
+        ):
+            tokenizer_calls.append(text)
+            return DummyEncoding([[len(item)] for item in text])
+
+    class DummyProgress:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def update(self, amount):
+            progress_updates.append(amount)
+
+        def close(self):
+            pass
+
+    class DummyExecutor:
+        def __init__(self, max_workers):
+            used_workers.append(max_workers)
+            self._executor = ThreadPoolExecutor(max_workers=max_workers)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self._executor.shutdown(wait=True)
+
+        def map(self, fn, iterable):
+            return self._executor.map(fn, iterable)
+
+    monkeypatch.setattr(
+        "transformers.AutoTokenizer.from_pretrained",
+        lambda *args, **kwargs: DummyTokenizer(),
+    )
+    monkeypatch.setattr("lm_eval.models.api_models.tqdm", DummyProgress)
+    monkeypatch.setattr("lm_eval.models.api_models.ThreadPoolExecutor", DummyExecutor)
+
+    api = LocalCompletionsAPI(
+        base_url="http://test-url.com",
+        model="EleutherAI/pythia-1b",
+        tokenizer_backend="huggingface",
+        tokenizer_batch_size=2,
+        tokenizer_num_workers=2,
+    )
+
+    result = api.tok_encode(
+        ["a", "bb", "ccc", "dddd", "eeeee"],
+        disable_tqdm=False,
+    )
+
+    assert result == [[1], [2], [3], [4], [5]]
+    assert tokenizer_calls == [["a", "bb"], ["ccc", "dddd"], ["eeeee"]]
+    assert progress_updates == [2, 2, 1]
+    assert used_workers == [2]
