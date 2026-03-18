@@ -671,6 +671,9 @@ class ConfigurableTask(Task):
         self._aggregation_list = {}
         self._higher_is_better = {}
 
+        if callable(self.config.metric_list):
+            self._config.metric_list = self.config.metric_list(self.config.metadata)
+
         if self.config.metric_list is None:
             # TODO: handle this in TaskConfig.__post_init__ ?
             _metric_list = DEFAULT_METRIC_REGISTRY[self.config.output_type]

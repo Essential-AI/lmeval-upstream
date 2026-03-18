@@ -113,7 +113,7 @@ class TaskConfig(dict):
     # runtime configuration options
     num_fewshot: int | None = None
     # scoring options
-    metric_list: list | None = None
+    metric_list: list | Callable | None = None
     output_type: OutputType = "generate_until"
     generation_kwargs: dict | None = None
     repeats: int = 1
