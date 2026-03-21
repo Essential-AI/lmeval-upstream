@@ -7,6 +7,7 @@ import datasets
 from lm_eval.tasks.ruler.common_utils import DEFAULT_SEQ_LENGTHS, get_tokenizer
 from lm_eval.tasks.ruler.instruct_utils import maybe_apply_prompt_template
 from lm_eval.tasks.ruler.prepare_niah import generate_samples, get_haystack
+from lm_eval.tasks.ruler.task_cache import ruler_cached
 
 
 TEMPLATE = """Some special magic {type_needle_v} are hidden within the following text. Make sure to memorize it. I will quiz you about the {type_needle_v} afterwards.\n{context}\nWhat are all the special magic {type_needle_v} for {query} mentioned in the provided text?"""
@@ -20,6 +21,7 @@ def download_dataset(df: Generator, **kwargs) -> dict[str, datasets.Dataset]:
     return {"test": datasets.Dataset.from_list(samples, split=datasets.Split.TEST)}
 
 
+@ruler_cached
 def niah_single_1(**kwargs):
     seq_lengths = kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     return download_dataset(
@@ -40,6 +42,7 @@ def niah_single_1(**kwargs):
     )
 
 
+@ruler_cached
 def niah_single_2(**kwargs):
     seq_lengths = kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     return download_dataset(
@@ -60,6 +63,7 @@ def niah_single_2(**kwargs):
     )
 
 
+@ruler_cached
 def niah_single_3(**kwargs):
     seq_lengths = kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     return download_dataset(
@@ -80,6 +84,7 @@ def niah_single_3(**kwargs):
     )
 
 
+@ruler_cached
 def niah_multikey_1(**kwargs):
     seq_lengths = kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     return download_dataset(
@@ -101,6 +106,7 @@ def niah_multikey_1(**kwargs):
     )
 
 
+@ruler_cached
 def niah_multikey_2(**kwargs):
     seq_lengths = kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     return download_dataset(
@@ -121,6 +127,7 @@ def niah_multikey_2(**kwargs):
     )
 
 
+@ruler_cached
 def niah_multikey_3(**kwargs):
     seq_lengths = kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     return download_dataset(
@@ -141,6 +148,7 @@ def niah_multikey_3(**kwargs):
     )
 
 
+@ruler_cached
 def niah_multivalue(**kwargs):
     seq_lengths = kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     return download_dataset(
@@ -162,6 +170,7 @@ def niah_multivalue(**kwargs):
     )
 
 
+@ruler_cached
 def niah_multiquery(**kwargs):
     seq_lengths = kwargs.pop("max_seq_lengths", DEFAULT_SEQ_LENGTHS)
     return download_dataset(

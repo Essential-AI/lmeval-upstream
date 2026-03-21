@@ -99,6 +99,7 @@ def _rnj_1_instruct(task_template: str, answer_prefix: str) -> str:
         formatted = formatted[:last_eot]
     return formatted
 
+
 @register_prompt_template("EssentialAI/rnj-1-instruct")
 def _rnj_1_instruct(task_template: str, answer_prefix: str) -> str:
     _TEMPLATE = (
@@ -119,3 +120,4 @@ def _rnj_1_instruct(task_template: str, answer_prefix: str) -> str:
     if last_eot != -1:
         formatted = formatted[:last_eot]
     return formatted
+

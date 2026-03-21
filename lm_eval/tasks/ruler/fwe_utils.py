@@ -23,6 +23,7 @@ from tqdm import tqdm
 
 from lm_eval.tasks.ruler.common_utils import DEFAULT_SEQ_LENGTHS, get_tokenizer
 from lm_eval.tasks.ruler.instruct_utils import maybe_apply_prompt_template
+from lm_eval.tasks.ruler.task_cache import ruler_cached
 
 
 CONFIG = {
@@ -154,6 +155,7 @@ def get_dataset(pretrained, max_seq_length=None, **kwargs):
     return write_jsons
 
 
+@ruler_cached
 def fwe_download(**kwargs):
     pretrained = kwargs.get("tokenizer", kwargs.get("pretrained", {}))
     df = (

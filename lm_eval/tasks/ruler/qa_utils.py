@@ -23,6 +23,7 @@ from tqdm import tqdm
 
 from lm_eval.tasks.ruler.common_utils import DEFAULT_SEQ_LENGTHS, get_tokenizer
 from lm_eval.tasks.ruler.instruct_utils import maybe_apply_prompt_template
+from lm_eval.tasks.ruler.task_cache import ruler_cached
 
 CONFIG = {
     "tokens_to_generate": 32,
@@ -234,9 +235,11 @@ def get_qa_dataset(ds, **kwargs) -> dict[str, datasets.Dataset]:
     }
 
 
+@ruler_cached
 def get_squad(**kwargs):
     return get_qa_dataset("squad", **kwargs)
 
 
+@ruler_cached
 def get_hotpotqa(**kwargs):
     return get_qa_dataset("hotpotqa", **kwargs)
