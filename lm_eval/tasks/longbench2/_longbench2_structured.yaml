@@ -1,8 +1,7 @@
 group: longbench2_structured
 group_alias: "Long Structured Data Understanding"
 task:
-  - longbench2_graph
-  - longbench2_table
+  - longbench2_structured_tasks
 aggregate_metric_list:
   - metric: acc
     weight_by_size: True

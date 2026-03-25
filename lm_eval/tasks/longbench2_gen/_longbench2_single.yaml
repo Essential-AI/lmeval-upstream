@@ -1,0 +1,17 @@
+group: longbench2_gen_single
+group_alias: "Single-Document QA"
+task:
+  - longbench2_gen_single_tasks
+  #- longbench2_gen_govt_single
+  #- longbench2_gen_legal_single
+  #- longbench2_gen_lit_single
+  #- longbench2_gen_fin_single
+  #- longbench2_gen_event_order
+  #- longbench2_gen_academic_single
+  #- longbench2_gen_detective
+aggregate_metric_list:
+  - metric: exact_match
+    weight_by_size: True
+    filter_list: get_response
+metadata:
+  version: 0.0

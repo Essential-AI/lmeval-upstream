@@ -1,0 +1,19 @@
+group: longbench2_gen
+task:
+  #- longbench2_gen_history_tasks
+  #- longbench2_gen_incontext_tasks
+  #- longbench2_gen_multi_tasks
+  #- longbench2_gen_single_tasks
+  #- longbench2_gen_structured_tasks
+  - longbench2_gen_history
+  - longbench2_gen_incontext
+  - longbench2_gen_multi
+  - longbench2_gen_single
+  - longbench2_gen_structured
+  - longbench2_gen_code
+aggregate_metric_list:
+  - metric: exact_match
+    weight_by_size: True
+    filter_list: get_response
+metadata:
+  version: 0.0

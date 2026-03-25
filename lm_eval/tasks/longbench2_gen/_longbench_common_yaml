@@ -1,0 +1,32 @@
+dataset_path: recursal/longbench-v2
+test_split: train
+output_type: generate_until
+doc_to_text: "Please read the following text and answer the question below.\n\n<text>\n{{context}}\n</text>\n\nWhat is the correct answer to this question: {{question.strip()}}\nChoices:\n(A) {{choices[0]}}\n(B) {{choices[1]}}\n(C) {{choices[2]}}\n(D) {{choices[3]}}\nAnswer only A, B, C, or D.\n\nAnswer:"
+doc_to_target: "{{['A', 'B', 'C', 'D'][answer]}}"
+generation_kwargs:
+  until:
+    - "</s>"
+    - "\n"
+metric_list:
+  - metric: exact_match
+    aggregation: mean
+    higher_is_better: true
+    ignore_punctuation: true
+    ignore_case: true
+filter_list:
+  - name: get_response
+    filter:
+      # Filter everything after the first break line
+      - function: "regex"
+        regex_pattern: "^(.*?)(?=\\n|$)"
+      # Remove leading white spaces
+      - function: remove_whitespace
+      # function to ignore right white spaces or line breaks
+      - function: "regex"
+        regex_pattern: "^(.*?)\\s*$"
+      - function: "regex"
+        regex_pattern: "^\\s*(\\S+).*$"
+      - function: take_first
+metadata:
+  version: 0.0
+

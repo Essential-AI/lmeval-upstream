@@ -1,0 +1,7 @@
+include: _longbench_common_yaml
+tag:
+  - longbench2_gen_tasks
+  - longbench2_gen_multi_tasks
+  - longbench2_gen_legal_multi_tasks
+task: longbench2_gen_legal_multi
+dataset_name: legal_multi

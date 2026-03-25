@@ -1,0 +1,7 @@
+include: _longbench_common_yaml
+tag:
+  - longbench2_gen_tasks
+  - longbench2_gen_single_tasks
+  - longbench2_gen_event_order_tasks
+task: longbench2_gen_event_order
+dataset_name: event_ordering

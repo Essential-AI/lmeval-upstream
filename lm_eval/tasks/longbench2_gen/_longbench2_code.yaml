@@ -1,0 +1,10 @@
+group: longbench2_gen_code
+group_alias: "Code Repository QA"
+task:
+  - longbench2_gen_code_tasks
+aggregate_metric_list:
+  - metric: exact_match
+    weight_by_size: True
+    filter_list: get_response
+metadata:
+  version: 0.0

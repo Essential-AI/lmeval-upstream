@@ -1,0 +1,7 @@
+include: _longbench_common_yaml
+tag:
+  - longbench2_gen_tasks
+  - longbench2_gen_structured_tasks
+  - longbench2_gen_graph_tasks
+task: longbench2_gen_graph
+dataset_name: graph_reasoning

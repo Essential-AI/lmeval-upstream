@@ -1,0 +1,10 @@
+group: longbench2_code
+group_alias: "Code Repository QA"
+task:
+  - longbench2_code_tasks
+aggregate_metric_list:
+  - metric: acc
+    weight_by_size: True
+    filter_list: get_response
+metadata:
+  version: 0.0

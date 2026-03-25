@@ -1,0 +1,14 @@
+group: longbench2_gen_multi
+group_alias: "Multi-Document QA"
+task:
+  - longbench2_gen_multi_tasks
+  #- longbench2_gen_govt_multi
+  #- longbench2_gen_academic_multi
+  #- longbench2_gen_fin_multi
+  #- longbench2_gen_news_multi
+aggregate_metric_list:
+  - metric: exact_match
+    weight_by_size: True
+    filter_list: get_response
+metadata:
+  version: 0.0

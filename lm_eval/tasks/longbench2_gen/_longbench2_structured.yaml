@@ -1,0 +1,12 @@
+group: longbench2_gen_structured
+group_alias: "Long Structured Data Understanding"
+task:
+  - longbench2_gen_structured_tasks
+  #- longbench2_gen_graph
+  #- longbench2_gen_table
+aggregate_metric_list:
+  - metric: exact_match
+    weight_by_size: True
+    filter_list: get_response
+metadata:
+  version: 0.0

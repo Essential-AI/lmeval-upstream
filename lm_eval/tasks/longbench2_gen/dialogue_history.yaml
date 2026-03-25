@@ -1,0 +1,7 @@
+include: _longbench_common_yaml
+tag:
+  - longbench2_gen_tasks
+  - longbench2_gen_history_tasks
+  - longbench2_gen_dialogue_history_tasks
+task: longbench2_gen_dialogue_history
+dataset_name: dialogue_history_qa

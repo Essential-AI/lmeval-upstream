@@ -1,0 +1,13 @@
+group: longbench2_gen_incontext
+group_alias: "Long In-context Learning"
+task:
+  - longbench2_gen_incontext_tasks
+  #- longbench2_gen_user_guide
+  #- longbench2_gen_translate
+  #- longbench2_gen_many_shot
+aggregate_metric_list:
+  - metric: exact_match
+    weight_by_size: True
+    filter_list: get_response
+metadata:
+  version: 0.0
