@@ -83,7 +83,7 @@ def _rnj_1_instruct(task_template: str, answer_prefix: str) -> str:
     _TEMPLATE = (
         "<|begin_of_text|>"
         "<|start_header_id|>system<|end_header_id|>\n"
-        "You are rnj-1, a foundation model trained by Essential AI.\n\n"
+        "You are rnj-1.5, a foundation model trained by Essential AI.\n\n"
         "You are a helpful assistant.<|eot_id|>"
         "<|start_header_id|>user<|end_header_id|>\n"
         "{user_message}<|eot_id|>"
