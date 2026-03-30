@@ -280,6 +280,51 @@ class TestRulerCachedEnabled:
         assert call_count == 1, "Cache should still work even though fn pops kwargs"
 
 
+class TestSourceHashInvalidation:
+    """Changing source code of the RULER pipeline should invalidate the cache."""
+
+    def test_key_includes_source_hash(self):
+        """_make_key should accept and incorporate a source_hash.
+        """
+        k1 = _make_key("t", "tok", [4096], False, source_hash="abc123")
+        k2 = _make_key("t", "tok", [4096], False, source_hash="abc123")
+        assert k1 == k2
+
+        k3 = _make_key("t", "tok", [4096], False, source_hash="def456")
+        assert k1 != k3, "Different source_hash should produce different keys"
+
+    def test_key_without_source_hash_differs_from_with(self):
+        k_no = _make_key("t", "tok", [4096], False)
+        k_yes = _make_key("t", "tok", [4096], False, source_hash="abc123")
+        assert k_no != k_yes
+
+    def test_source_change_invalidates_cache(self, cache_dir, monkeypatch):
+        """Simulates a code change by decorating the same function twice with
+        different source hashes -- the second "version" should miss the cache
+        populated by the first.
+        """
+        from lm_eval.tasks.ruler import task_cache as tc_mod
+
+        call_count = 0
+
+        def _the_task(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            return _make_dataset(FAKE_SAMPLES)
+
+        version_1 = ruler_cached(_the_task)
+        version_1(pretrained="tok", max_seq_lengths=[4096])
+        assert call_count == 1
+
+        version_1(pretrained="tok", max_seq_lengths=[4096])
+        assert call_count == 1, "Same code → cache hit"
+
+        monkeypatch.setattr(tc_mod, "_compute_source_hash", lambda _fn: "changed!")
+        version_2 = ruler_cached(_the_task)
+        version_2(pretrained="tok", max_seq_lengths=[4096])
+        assert call_count == 2, "Changed source hash → cache miss"
+
+
 # ---------------------------------------------------------------------------
 # Tests for the shared diskcache layer directly
 # ---------------------------------------------------------------------------
