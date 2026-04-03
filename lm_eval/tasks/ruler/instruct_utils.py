@@ -16,6 +16,7 @@ To add support for a new model, define a function with that signature and
 decorate it with ``@register_prompt_template("OrgName/model-name")``.
 """
 
+import re
 from collections.abc import Callable
 
 PromptTemplateFn = Callable[[str, str], str]
@@ -80,21 +81,48 @@ def maybe_apply_prompt_template(samples: list[dict], **kwargs) -> list[dict]:
 
 @register_prompt_template("EssentialAI/rnj-1-instruct-tokenizer-internal")
 def _rnj_1_instruct(task_template: str, answer_prefix: str) -> str:
-    _TEMPLATE = (
-        "<|begin_of_text|>"
-        "<|start_header_id|>system<|end_header_id|>\n"
-        "You are rnj-1.5, a foundation model trained by Essential AI.\n\n"
-        "You are a helpful assistant.<|eot_id|>"
-        "<|start_header_id|>user<|end_header_id|>\n"
-        "{user_message}<|eot_id|>"
-        "<|start_header_id|>assistant<|end_header_id|>\n"
-        "{assistant_message}<|eot_id|>"
-    )
-    formatted = _TEMPLATE.format(
-        user_message=task_template,
-        assistant_message=answer_prefix,
-    )
-    last_eot = formatted.rfind("<|eot_id|>")
-    if last_eot != -1:
-        formatted = formatted[:last_eot]
+    is_cwe = True if "Below is a numbered list of words. In these words, some appear more often than others. Memorize the ones that appear most often" in task_template else False
+
+    if is_cwe:
+        _QUESTION_RE = re.compile(r"\n(Question:\s*.*)$", re.DOTALL)
+
+        m = _QUESTION_RE.search(task_template)
+        if m:
+            prefix = task_template[: m.start()]
+            suffix = m.group(1)
+        else:
+            raise ValueError("should not happen")
+
+        _TEMPLATE = (
+            "<|begin_of_text|>"
+            "<|start_header_id|>system<|end_header_id|>\n"
+            "You are rnj-1.5, a foundation model trained by Essential AI.\n\n"
+            "You are a helpful assistant.<|eot_id|>"
+            "<|start_header_id|>user<|end_header_id|>\n"
+            "{user_message_prefix}<|eot_id|>"
+            "<|start_header_id|>user<|end_header_id|>\n"
+            "{user_message_suffix}<|eot_id|>"
+            "<|start_header_id|>assistant<|end_header_id|>\n"
+            "{assistant_message}"
+        )
+        formatted = _TEMPLATE.format(
+            user_message_prefix=prefix,
+            user_message_suffix=suffix,
+            assistant_message=answer_prefix,
+        )
+    else:
+        _TEMPLATE = (
+            "<|begin_of_text|>"
+            "<|start_header_id|>system<|end_header_id|>\n"
+            "You are rnj-1.5, a foundation model trained by Essential AI.\n\n"
+            "You are a helpful assistant.<|eot_id|>"
+            "<|start_header_id|>user<|end_header_id|>\n"
+            "{user_message}<|eot_id|>"
+            "<|start_header_id|>assistant<|end_header_id|>\n"
+            "{assistant_message}"
+        )
+        formatted = _TEMPLATE.format(
+            user_message=task_template,
+            assistant_message=answer_prefix,
+        )
     return formatted
