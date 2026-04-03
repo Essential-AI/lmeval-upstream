@@ -223,7 +223,7 @@ class WandbLogger:
                 else:
                     metrics[f"{metric}_words"] = [x[metric][1] for x in data]
             else:
-                metrics[metric] = [x[metric] for x in data]
+                metrics[metric] = [x.get(metric) for x in data]
 
         if config["output_type"] == "loglikelihood":
             instance = [x["arguments"][0][0] for x in data]
