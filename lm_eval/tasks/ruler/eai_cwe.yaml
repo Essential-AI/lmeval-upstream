@@ -1,0 +1,9 @@
+include: niah_single_1.yaml
+task: eai_cwe
+custom_dataset: !function eai_cwe.get_cw_dataset
+target_delimiter: "\n\n"
+generation_kwargs:
+  do_sample: false
+  temperature: 0.0
+  max_gen_toks: 120
+  until: []
