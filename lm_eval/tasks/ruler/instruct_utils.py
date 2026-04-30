@@ -17,6 +17,7 @@ decorate it with ``@register_prompt_template("OrgName/model-name")``.
 """
 
 from collections.abc import Callable
+from datetime import date
 
 PromptTemplateFn = Callable[[str, str], str]
 PROMPT_TEMPLATES: dict[str, PromptTemplateFn] = {}
@@ -98,3 +99,46 @@ def _rnj_1_instruct(task_template: str, answer_prefix: str) -> str:
     if last_eot != -1:
         formatted = formatted[:last_eot]
     return formatted
+
+
+@register_prompt_template("meta-llama/Llama-3.1-8B-Instruct")
+@register_prompt_template("meta-llama/Llama-3.1-70B-Instruct")
+@register_prompt_template("meta-llama/Llama-3.1-405B-Instruct")
+def _llama_3_1_instruct(task_template: str, answer_prefix: str) -> str:
+    _TEMPLATE = (
+        "<|begin_of_text|>"
+        "<|start_header_id|>system<|end_header_id|>\n\n"
+        "Cutting Knowledge Date: December 2023\n"
+        "Today Date: 26 Jul 2024\n\n"
+        "<|eot_id|>"
+        "<|start_header_id|>user<|end_header_id|>\n\n"
+        "{user_message}<|eot_id|>"
+        "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        "{assistant_message}"
+    )
+    return _TEMPLATE.format(
+        user_message=task_template,
+        assistant_message=answer_prefix,
+    )
+
+
+@register_prompt_template("openai/gpt-oss-20b")
+@register_prompt_template("openai/gpt-oss-120b")
+def _gpt_oss(task_template: str, answer_prefix: str) -> str:
+    today = date.today().isoformat()
+    _TEMPLATE = (
+        "<|start|>system<|message|>"
+        "You are ChatGPT, a large language model trained by OpenAI.\n"
+        "Knowledge cutoff: 2024-06\n"
+        f"Current date: {today}\n\n"
+        "Reasoning: medium\n\n"
+        "# Valid channels: analysis, commentary, final. "
+        "Channel must be included for every message."
+        "<|end|>"
+        "<|start|>user<|message|>{user_message}<|end|>"
+        "<|start|>assistant<|channel|>final<|message|>{assistant_message}"
+    )
+    return _TEMPLATE.format(
+        user_message=task_template,
+        assistant_message=answer_prefix,
+    )
